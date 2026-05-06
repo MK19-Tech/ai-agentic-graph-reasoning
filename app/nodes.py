@@ -1,6 +1,6 @@
 import os
 from langchain_groq import ChatGroq
-from langchain_community.tools import DuckDuckGoSearchRun
+from langchain_community.utilities import DuckDuckGoSearchAPIWrapper
 from app.state import logger
 from app.utils import handle_node_errors
 
@@ -10,7 +10,7 @@ def get_model():
     if not key:
         raise ValueError("GROQ_API_KEY is missing. Check your .env file.")
     
-    # Updated to 'versatile' as 'specdec' is no longer supported
+    # Production-ready versatile model
     return ChatGroq(
         model="llama-3.3-70b-versatile", 
         api_key=key, 
@@ -46,11 +46,19 @@ def executor_node(state):
     query = state["plan"][idx]
     logger.info(f"Executor: Searching DuckDuckGo for '{query}'")
     
-    search = DuckDuckGoSearchRun()
-    results = search.run(query)
+    # Use API Wrapper directly for better compatibility with latest ddgs package
+    search = DuckDuckGoSearchAPIWrapper()
+    
+    try:
+        # Attempt to search using the specific plan step
+        results = search.run(query)
+    except Exception as e:
+        logger.warning(f"Search failed for specific step. Falling back to general task search. Error: {e}")
+        # Fallback to the main task if the plan step is too complex for the search engine
+        results = search.run(state['task'])
     
     return {
-        "context": [f"\nStep {idx+1} Result ({query}): {results}"], 
+        "context": [f"\nStep {idx+1} Findings: {results}"], 
         "steps_taken": idx + 1
     }
 
@@ -83,7 +91,7 @@ def finalizer_node(state):
     )
     response = model.invoke(prompt)
     
-    # Ensure Unicode encoding for Windows
+    # Ensure Unicode encoding for Windows to prevent emojis/special chars from crashing
     with open("research_report.md", "w", encoding="utf-8") as f:
         f.write(response.content)
         

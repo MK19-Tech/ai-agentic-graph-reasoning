@@ -1,10 +1,21 @@
 import os
+import sys
 from pathlib import Path
 from dotenv import load_dotenv
 
-# --- FAIL-SAFE KEY LOADING ---
-env_path = Path(__file__).parent / ".env"
-load_dotenv(dotenv_path=env_path)
+# --- ULTIMATE WINDOWS-PROOF ENV LOADING ---
+root_dir = Path(__file__).parent
+possible_files = [".env", ".env.txt", "app/.env"]
+
+found_path = None
+for file_name in possible_files:
+    test_path = root_dir / file_name
+    if test_path.exists():
+        load_dotenv(dotenv_path=test_path, override=True)
+        found_path = test_path
+        if ".txt" in file_name:
+            print(f"⚠️ WARNING: Your env file has a .txt extension: {file_name}. Renaming internally...")
+        break
 
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
@@ -32,25 +43,27 @@ builder.add_edge("finalizer", END)
 app = builder.compile(checkpointer=MemorySaver(), interrupt_before=["executor"])
 
 if __name__ == "__main__":
-    # DEBUG CHECK
     key = os.getenv("GROQ_API_KEY")
+    
     if not key:
-        print(f"❌ DEBUG: Looking for .env at: {env_path.absolute()}")
-        print("❌ DEBUG: GROQ_API_KEY not found in Environment.")
+        print("\n--- 🛑 AGENT ENGINE STOPPED ---")
+        print(f"I looked in: {root_dir}")
+        print("I could not find 'GROQ_API_KEY' in any .env file.")
+        print("\nQUICK FIX: Run this command in your terminal then run the script again:")
+        print(f"set GROQ_API_KEY=your_key_here")
+        sys.exit(1)
     else:
-        print(f"✅ DEBUG: Key found (starts with: {key[:6]}...)")
+        print(f"✅ SUCCESS: Key loaded (starts with {key[:6]}). Engine starting...")
 
-    config = {"configurable": {"thread_id": "final_fix_run"}}
-    inputs = {"task": "Recent breakthroughs in Agentic RAG as of May 2026"}
+    config = {"configurable": {"thread_id": "production_test_01"}}
+    inputs = {"task": "What are the top 3 agentic design patterns in 2024?"}
     
     print("\n--- Starting Free Agentic Engine ---")
     for event in app.stream(inputs, config):
         print(f"Node: {list(event.keys())}")
 
     snapshot = app.get_state(config)
-    if snapshot.values.get("error"):
-        print(f"\n🛑 FATAL ERROR: {snapshot.values['error']}")
-    else:
+    if not snapshot.values.get("error"):
         print("\n[PAUSED] Plan generated.")
         if input("\nType 'GO' to proceed: ").upper() == "GO":
             for event in app.stream(None, config):

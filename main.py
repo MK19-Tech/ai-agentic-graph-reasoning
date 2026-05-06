@@ -8,7 +8,9 @@ from app.state import AgentState, logger
 from app.nodes import planner_node, executor_node, critic_node, finalizer_node
 
 def router(state: AgentState):
-    if state.get("error"): return END
+    if state.get("error"): 
+        print(f"\n🛑 Stopped: {state['error']}")
+        return END
     if state.get("is_sufficient") or state.get("steps_taken", 0) >= len(state.get("plan", [])):
         return "finalizer"
     return "executor"
@@ -28,14 +30,18 @@ builder.add_edge("finalizer", END)
 app = builder.compile(checkpointer=MemorySaver(), interrupt_before=["executor"])
 
 if __name__ == "__main__":
-    config = {"configurable": {"thread_id": "free_research_01"}}
-    task = {"task": "Latest open-source alternatives to OpenAI Sora in 2024"}
+    config = {"configurable": {"thread_id": "free_run_1"}}
+    inputs = {"task": "Comparison of Llama 3.1 vs Llama 3.3 for agentic tasks"}
     
     print("\n--- Starting Free Agentic Engine ---")
-    for event in app.stream(task, config):
+    for event in app.stream(inputs, config):
         print(f"Node: {list(event.keys())}")
 
-    if input("\nPlan ready. Type 'GO' to start free search: ").upper() == "GO":
-        for event in app.stream(None, config):
-            print(f"Node: {list(event.keys())}")
-        print("\n✅ Done! Report saved to 'research_report.md'.")
+    snapshot = app.get_state(config)
+    if snapshot.values.get("error"):
+        print("\n❌ Error detected. Check your GROQ_API_KEY in .env")
+    else:
+        if input("\nPlan ready. Type 'GO' to execute: ").upper() == "GO":
+            for event in app.stream(None, config):
+                print(f"Node: {list(event.keys())}")
+            print("\n✅ Done! Check 'research_report.md'.")

@@ -1,7 +1,5 @@
 import os
 from dotenv import load_dotenv
-
-# IMPORTANT: load_dotenv() MUST come before importing nodes
 load_dotenv() 
 
 from langgraph.graph import StateGraph, START, END
@@ -11,7 +9,7 @@ from app.nodes import planner_node, executor_node, critic_node, finalizer_node
 
 def router(state: AgentState):
     if state.get("error"): return END
-    if state["is_sufficient"] or state["steps_taken"] >= len(state["plan"]):
+    if state.get("is_sufficient") or state.get("steps_taken", 0) >= len(state.get("plan", [])):
         return "finalizer"
     return "executor"
 
@@ -30,16 +28,14 @@ builder.add_edge("finalizer", END)
 app = builder.compile(checkpointer=MemorySaver(), interrupt_before=["executor"])
 
 if __name__ == "__main__":
-    config = {"configurable": {"thread_id": "1"}}
-    task = {"task": "Current stock sentiment for Nvidia Blackwell chips"}
+    config = {"configurable": {"thread_id": "free_research_01"}}
+    task = {"task": "Latest open-source alternatives to OpenAI Sora in 2024"}
     
-    print("\n--- Starting Agent ---")
+    print("\n--- Starting Free Agentic Engine ---")
     for event in app.stream(task, config):
-        print(f"Completed: {list(event.keys())[0]}")
+        print(f"Node: {list(event.keys())}")
 
-    print("\n[PAUSED] Plan generated. Reviewing...")
-    # Resume after user types GO
-    if input("\nType 'GO' to proceed: ").upper() == "GO":
+    if input("\nPlan ready. Type 'GO' to start free search: ").upper() == "GO":
         for event in app.stream(None, config):
-            print(f"Completed: {list(event.keys())[0]}")
-        print("\nDone! Check research_report.md")
+            print(f"Node: {list(event.keys())}")
+        print("\n✅ Done! Report saved to 'research_report.md'.")

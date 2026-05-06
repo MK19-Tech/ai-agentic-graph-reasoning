@@ -5,25 +5,31 @@ from app.state import logger
 from app.utils import handle_node_errors
 
 def get_model():
+    """Defensively fetch the API key to prevent 401 errors."""
     key = os.getenv("GROQ_API_KEY")
-    if not key:
-        raise ValueError("GROQ_API_KEY is missing. Get one for free at ://groq.com")
-    return ChatGroq(model="llama-3.3-70b-specdec", groq_api_key=key)
+    if not key or key.startswith("gsk_your"):
+        raise ValueError("CRITICAL: GROQ_API_KEY is invalid or missing in .env")
+    return ChatGroq(model="llama-3.3-70b-specdec", groq_api_key=key, temperature=0)
 
 @handle_node_errors
 def planner_node(state):
     logger.info("Planner: Creating research steps...")
-    model = get_model()
-    prompt = f"Plan 3 search steps for: {state['task']}. Return steps only, one per line. No numbers."
+    model = get_model() # Key check happens here
+    prompt = f"Plan 3 search steps for: {state['task']}. Return steps only, one per line."
     response = model.invoke(prompt)
+    
     plan_steps = [s.strip() for s in response.content.strip().split("\n") if s.strip()]
+    if not plan_steps:
+        raise ValueError("LLM returned an empty plan.")
+        
     return {"plan": plan_steps, "steps_taken": 0, "error": None}
 
 @handle_node_errors
 def executor_node(state):
+    # Guard: If planner failed, don't try to access 'plan'
     if not state.get("plan"):
-        raise ValueError("No plan found. Planner likely failed due to API Key issues.")
-    
+        raise ValueError("Cannot execute: No plan found in state. Check previous node errors.")
+        
     idx = state.get("steps_taken", 0)
     query = state["plan"][idx]
     logger.info(f"Executor: Searching DuckDuckGo for '{query}'")
@@ -40,7 +46,7 @@ def critic_node(state):
         
     model = get_model()
     context = " ".join(state["context"])
-    prompt = f"Answer this: {state['task']} using: {context}. Is it enough? Reply YES or NO."
+    prompt = f"Does this answer '{state['task']}'? Context: {context}. Reply YES or NO."
     response = model.invoke(prompt)
     return {"is_sufficient": "YES" in response.content.upper()}
 
@@ -48,9 +54,10 @@ def critic_node(state):
 def finalizer_node(state):
     logger.info("Finalizer: Writing report...")
     model = get_model()
-    context = " ".join(state.get("context", ["No data."]))
+    context = " ".join(state.get("context", ["No data gathered."]))
     prompt = f"Write a Markdown report for: {state['task']} using: {context}"
     response = model.invoke(prompt)
+    
     with open("research_report.md", "w", encoding="utf-8") as f:
         f.write(response.content)
     return {"current_response": response.content}

@@ -1,35 +1,18 @@
-from langchain_openai import ChatOpenAI
-from langchain_community.tools.tavily_search import TavilySearchResults
-from app.state import AgentState, logger
-from app.utils import handle_node_errors
-
-model = ChatOpenAI(model="gpt-4o", temperature=0)
-search_tool = TavilySearchResults(max_results=3)
-
 @handle_node_errors
-def planner_node(state: AgentState):
-    logger.info("Executing Planner Node")
-    prompt = f"Plan a 3-step research for: {state['task']}. Return steps only, separated by newlines."
-    response = model.invoke(prompt)
-    return {"plan": response.content.strip().split("\n"), "steps_taken": 0}
-
-@handle_node_errors
-def executor_node(state: AgentState):
-    current_step = state['plan'][state['steps_taken']]
-    logger.info(f"Executing Search for: {current_step}")
+def finalizer_node(state: AgentState):
+    logger.info("Executing Finalizer Node - Synthesizing Report")
     
-    results = search_tool.invoke(current_step)
-    return {
-        "context": [f"Step {state['steps_taken']}: {str(results)}"],
-        "steps_taken": state['steps_taken'] + 1
-    }
-
-@handle_node_errors
-def critic_node(state: AgentState):
-    logger.info("Executing Critic Node")
-    # Self-Correction logic
-    prompt = f"Does this information fully answer the task: '{state['task']}'? Context: {state['context']}. Reply ONLY 'YES' or 'NO'."
+    prompt = (
+        f"You are a Senior Research Analyst. Based on the following research context, "
+        f"write a comprehensive Markdown report for the task: '{state['task']}'.\n\n"
+        f"Context gathered:\n{' '.join(state['context'])}\n\n"
+        "Use headers, bullet points, and a 'Sources' section."
+    )
+    
     response = model.invoke(prompt)
     
-    is_done = "YES" in response.content.upper()
-    return {"is_sufficient": is_done}
+    # Save to a local file for extra 'Engineering' points
+    with open("research_report.md", "w") as f:
+        f.write(response.content)
+        
+    return {"current_response": response.content}

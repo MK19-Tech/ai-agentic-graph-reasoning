@@ -1,42 +1,28 @@
-import os
-from dotenv import load_dotenv
-from langgraph.graph import StateGraph, START, END
-from langgraph.checkpoint.memory import MemorySaver
-from app.state import AgentState, logger
-from app.nodes import planner_node, executor_node, critic_node
+# ... (existing imports and nodes)
+from app.nodes import planner_node, executor_node, critic_node, finalizer_node
 
-load_dotenv()
-
-# Build Graph
 builder = StateGraph(AgentState)
 
-# Add Nodes
+# Add all 4 nodes
 builder.add_node("planner", planner_node)
 builder.add_node("executor", executor_node)
 builder.add_node("critic", critic_node)
+builder.add_node("finalizer", finalizer_node)
 
-# Define Logic Flow
+# Flow
 builder.add_edge(START, "planner")
 builder.add_edge("planner", "executor")
 builder.add_edge("executor", "critic")
 
+# Conditional Router Logic
 def router(state: AgentState):
-    if state.get("error"): return END # Recovery: stop if error
+    if state.get("error"): return END
     if state["is_sufficient"] or state["steps_taken"] >= len(state["plan"]):
-        return END
-    return "executor" # Loop back for next step
+        return "finalizer" # Route to synthesis
+    return "executor"     # Loop back for more data
 
 builder.add_conditional_edges("critic", router)
+builder.add_edge("finalizer", END) # End after report generation
 
-# Persistence for Recovery
-checkpointer = MemorySaver()
-app = builder.compile(checkpointer=checkpointer)
-
-if __name__ == "__main__":
-    config = {"configurable": {"thread_id": "unique_session_001"}}
-    initial_state = {"task": "What are the top 3 open-source Agentic frameworks in 2024?"}
-    
-    logger.info("Starting Agentic Engine...")
-    for output in app.stream(initial_state, config):
-        print("--- Node Completed ---")
-        print(output)
+# Compile with HITL
+app = builder.compile(checkpointer=MemorySaver(), interrupt_before=["executor"])

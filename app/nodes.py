@@ -1,3 +1,10 @@
+# app/nodes.py
+
+# ADD THIS LINE AT THE TOP:
+from app.utils import handle_node_errors 
+
+from langchain_openai import ChatOpenAI
+# ... rest of your imports and code
 @handle_node_errors
 def finalizer_node(state: AgentState):
     logger.info("Executing Finalizer Node - Synthesizing Report")

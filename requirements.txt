@@ -1,5 +1,8 @@
-langgraph
-langchain-groq
-langchain-community
-duckduckgo-search
-python-dotenv
+langchain>=0.3.25
+langchain-community>=0.3.24
+langgraph>=0.4.5
+
+duckduckgo-search>=8.0.1
+ddgs>=9.5.2
+
+groq>=0.24.0

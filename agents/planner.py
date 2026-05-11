@@ -7,7 +7,6 @@ from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
-
 llm = ChatGroq(
     groq_api_key=settings.GROQ_API_KEY,
     model_name="llama-3.3-70b-versatile",
@@ -26,16 +25,16 @@ def planner_node(state):
         topic = state.get("topic", "")
 
         prompt = f"""
-You are a senior AI research planner.
+You are an expert AI research planner.
 
 Create a concise research plan for:
 
 {topic}
 
-Return:
-1. Objectives
-2. Key research areas
-3. Suggested search directions
+Provide:
+1. Main objectives
+2. Key technical areas
+3. Research directions
 4. Expected outcomes
 """
 
@@ -43,17 +42,15 @@ Return:
             [HumanMessage(content=prompt)]
         )
 
-        plan = response.content
-
         return {
             **state,
-            "plan": plan
+            "plan": response.content
         }
 
     except Exception as e:
 
-        logger.error(
-            f"Error in planner_node: {e}"
+        logger.exception(
+            f"Planner node failed: {e}"
         )
 
         return {

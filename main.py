@@ -1,18 +1,20 @@
 """
-main.py
--------
-Entry point for the Free Agentic Graph Reasoning Engine.
+main.py — Entry point for the Free Agentic Graph Reasoning Engine.
 """
+
+# ── Warning filter must be the very first thing, before any other import ──────
+import warnings
+warnings.filterwarnings("ignore", message=r".*allowed_objects.*")
 
 import logging
 import sys
 from pathlib import Path
 
-# ── Load .env before ANY local imports so settings.py sees the keys ──────────
+# ── Load .env before local imports so settings.py sees the keys ───────────────
 from dotenv import load_dotenv
 load_dotenv()
 
-from graph.builder import build_graph  # noqa: E402  (intentional late import)
+from graph.builder import build_graph
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -26,7 +28,6 @@ REPORT_PATH = Path("research_report.md")
 
 
 def save_report(report: str) -> None:
-    """Write the final report to disk."""
     REPORT_PATH.write_text(report, encoding="utf-8")
     logger.info("Report saved → %s", REPORT_PATH.resolve())
 
@@ -34,7 +35,6 @@ def save_report(report: str) -> None:
 def main() -> None:
     print("\n--- Starting Free Agentic Engine ---")
 
-    # Build graph once (validates config / API keys at this point)
     try:
         graph = build_graph()
     except Exception as exc:

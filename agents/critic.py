@@ -7,7 +7,6 @@ from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
-
 llm = ChatGroq(
     groq_api_key=settings.GROQ_API_KEY,
     model_name="llama-3.3-70b-versatile",
@@ -29,18 +28,17 @@ def critic_node(state):
         )
 
         prompt = f"""
-You are an AI research critic.
+You are a senior AI research analyst.
 
-Validate and summarize the following research.
+Analyze and summarize:
 
-Research:
 {research_data}
 
 Provide:
-1. Key Findings
-2. Reliability Assessment
-3. Technical Insights
-4. Final Summary
+1. Key findings
+2. Reliability analysis
+3. Technical insights
+4. Final concise summary
 """
 
         response = llm.invoke(
@@ -54,8 +52,8 @@ Provide:
 
     except Exception as e:
 
-        logger.error(
-            f"Error in critic_node: {e}"
+        logger.exception(
+            f"Critic node failed: {e}"
         )
 
         return {

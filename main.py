@@ -6,8 +6,9 @@ from graph.builder import build_graph
 logging.basicConfig(
     level=logging.INFO,
     format=(
-        "%(asctime)s - "
-        "%(levelname)s - "
+        "%(asctime)s | "
+        "%(levelname)s | "
+        "%(name)s | "
         "%(message)s"
     )
 )
@@ -21,9 +22,9 @@ def save_report(report: str):
         "research_report.md",
         "w",
         encoding="utf-8"
-    ) as f:
+    ) as file:
 
-        f.write(report)
+        file.write(report)
 
 
 def main():
@@ -45,18 +46,27 @@ def main():
         "final_report": ""
     }
 
-    result = graph.invoke(initial_state)
+    try:
 
-    final_report = result.get(
-        "final_report",
-        "No report generated."
-    )
+        result = graph.invoke(initial_state)
 
-    save_report(final_report)
+        final_report = result.get(
+            "final_report",
+            "No report generated."
+        )
 
-    print(
-        "\n✅ Done! Check 'research_report.md'"
-    )
+        save_report(final_report)
+
+        print(
+            "\n✅ Done! Check "
+            "'research_report.md'"
+        )
+
+    except Exception as e:
+
+        logger.exception(
+            f"Application failed: {e}"
+        )
 
 
 if __name__ == "__main__":

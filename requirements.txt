@@ -6,3 +6,5 @@ duckduckgo-search>=8.0.1
 ddgs>=9.5.2
 
 groq>=0.24.0
+
+python-dotenv>=1.0.1

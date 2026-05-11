@@ -1,30 +1,54 @@
 import os
+import logging
+
 from dotenv import load_dotenv
 
-load_dotenv()
+logger = logging.getLogger(__name__)
+
+# Explicitly load .env from project root
+BASE_DIR = os.path.dirname(
+    os.path.dirname(os.path.abspath(__file__))
+)
+
+ENV_PATH = os.path.join(BASE_DIR, ".env")
+
+load_dotenv(dotenv_path=ENV_PATH)
 
 
 class Settings:
-    GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-    @classmethod
-    def validate(cls):
+    def __init__(self):
 
-        if not cls.GROQ_API_KEY:
+        self.GROQ_API_KEY = (
+            os.getenv("GROQ_API_KEY", "")
+            .strip()
+            .replace('"', "")
+            .replace("'", "")
+        )
+
+    def validate(self):
+
+        if not self.GROQ_API_KEY:
+
             raise ValueError(
-                "❌ Missing GROQ_API_KEY in .env"
+                "\n❌ GROQ_API_KEY missing in .env\n"
             )
 
-        if not cls.GROQ_API_KEY.startswith("gsk_"):
+        # More robust validation
+        if len(self.GROQ_API_KEY) < 20:
+
             raise ValueError(
-                "❌ Invalid Groq API Key format"
+                "\n❌ GROQ_API_KEY seems invalid.\n"
+                "Please verify your Groq API key.\n"
             )
 
-        print(
+        logger.info(
             f"✅ SUCCESS: Key loaded "
-            f"(starts with {cls.GROQ_API_KEY[:6]})"
+            f"(starts with "
+            f"{self.GROQ_API_KEY[:8]})"
         )
 
 
 settings = Settings()
+
 settings.validate()

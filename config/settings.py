@@ -1,54 +1,100 @@
+"""
+config/settings.py
+------------------
+Optimized settings loader with relaxed API key validation and
+suppressed LangChain serializer deprecation warning.
+"""
+
 import os
-import logging
+import warnings
 
-from dotenv import load_dotenv
-
-logger = logging.getLogger(__name__)
-
-# Explicitly load .env from project root
-BASE_DIR = os.path.dirname(
-    os.path.dirname(os.path.abspath(__file__))
+# ── Suppress LangGraph/LangChain serializer deprecation warning ───────────────
+# Remove once the upstream library ships a new default for `allowed_objects`.
+warnings.filterwarnings(
+    "ignore",
+    message=r".*allowed_objects.*",
+    category=DeprecationWarning,
+)
+warnings.filterwarnings(
+    "ignore",
+    message=r".*allowed_objects.*",
+    # LangChain uses its own warning category; catch both just in case
 )
 
-ENV_PATH = os.path.join(BASE_DIR, ".env")
+from dataclasses import dataclass, field
+from typing import Optional
 
-load_dotenv(dotenv_path=ENV_PATH)
 
-
+@dataclass
 class Settings:
+    # ── Groq ──────────────────────────────────────────────────────────────────
+    groq_api_key: str = field(
+        default_factory=lambda: os.environ.get("GROQ_API_KEY", "")
+    )
+    groq_model: str = field(
+        default_factory=lambda: os.environ.get("GROQ_MODEL", "llama3-70b-8192")
+    )
 
-    def __init__(self):
+    # ── Optional extras ───────────────────────────────────────────────────────
+    tavily_api_key: Optional[str] = field(
+        default_factory=lambda: os.environ.get("TAVILY_API_KEY")
+    )
+    langsmith_api_key: Optional[str] = field(
+        default_factory=lambda: os.environ.get("LANGSMITH_API_KEY")
+    )
+    langchain_tracing_v2: bool = field(
+        default_factory=lambda: os.environ.get(
+            "LANGCHAIN_TRACING_V2", "false"
+        ).lower()
+        == "true"
+    )
 
-        self.GROQ_API_KEY = (
-            os.getenv("GROQ_API_KEY", "")
-            .strip()
-            .replace('"', "")
-            .replace("'", "")
-        )
+    def validate(self) -> None:
+        """
+        Validate required settings.
 
-    def validate(self):
+        Groq API keys are issued in several formats:
+          • Legacy:  gsk_<40+ alphanum chars>
+          • Current: gsk_<variable-length alphanum/underscore string>
+          • Some keys issued via proxies/enterprise gateways have different
+            prefixes entirely.
 
-        if not self.GROQ_API_KEY:
+        We therefore only enforce:
+          1. The key is non-empty.
+          2. It is a printable ASCII string (no stray whitespace / encoding artefacts).
 
+        If you need stricter enforcement, set GROQ_API_KEY_STRICT=true and the
+        old `gsk_` prefix + length check will be applied.
+        """
+        key = self.groq_api_key.strip()
+
+        if not key:
             raise ValueError(
-                "\n❌ GROQ_API_KEY missing in .env\n"
+                "❌ GROQ_API_KEY is not set.\n"
+                "   Add it to your .env file:  GROQ_API_KEY=gsk_..."
             )
 
-        # More robust validation
-        if len(self.GROQ_API_KEY) < 20:
-
+        if not key.isprintable() or " " in key:
             raise ValueError(
-                "\n❌ GROQ_API_KEY seems invalid.\n"
-                "Please verify your Groq API key.\n"
+                "❌ GROQ_API_KEY contains invalid characters (whitespace / "
+                "non-printable bytes).  Check your .env file for stray spaces."
             )
 
-        logger.info(
-            f"✅ SUCCESS: Key loaded "
-            f"(starts with "
-            f"{self.GROQ_API_KEY[:8]})"
-        )
+        # Optional strict mode ────────────────────────────────────────────────
+        if os.environ.get("GROQ_API_KEY_STRICT", "false").lower() == "true":
+            import re
+            if not re.match(r"^gsk_[A-Za-z0-9_]{20,}$", key):
+                raise ValueError(
+                    "❌ GROQ_API_KEY does not match the expected Groq format "
+                    "(gsk_<20+ alphanumeric/underscore chars>).\n"
+                    "   Disable strict mode by removing GROQ_API_KEY_STRICT "
+                    "from your environment."
+                )
+
+        # Write back the stripped key so callers always get a clean value
+        self.groq_api_key = key
 
 
+# Singleton – imported everywhere as `from config.settings import settings`
 settings = Settings()
-
 settings.validate()

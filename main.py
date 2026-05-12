@@ -2,17 +2,17 @@
 main.py — Entry point for the Free Agentic Graph Reasoning Engine.
 """
 
-# ── Warning filter must be the very first thing, before any other import ──────
+# ── Must be first — suppress LangGraph deprecation warning ───────────────────
 import warnings
 warnings.filterwarnings("ignore", message=r".*allowed_objects.*")
+
+# ── Load .env BEFORE any local imports ───────────────────────────────────────
+from dotenv import load_dotenv
+load_dotenv()
 
 import logging
 import sys
 from pathlib import Path
-
-# ── Load .env before local imports so settings.py sees the keys ───────────────
-from dotenv import load_dotenv
-load_dotenv()
 
 from graph.builder import build_graph
 

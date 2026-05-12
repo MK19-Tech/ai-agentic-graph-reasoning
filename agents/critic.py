@@ -7,58 +7,39 @@ from config.settings import settings
 
 logger = logging.getLogger(__name__)
 
-llm = ChatGroq(
-    groq_api_key=settings.GROQ_API_KEY,
-    model_name="llama-3.3-70b-versatile",
-    temperature=0
-)
-
 
 def critic_node(state):
+    # Instantiate inside the function so it always uses the fully loaded key
+    llm = ChatGroq(
+        groq_api_key=settings.GROQ_API_KEY,
+        model_name="llama-3.3-70b-versatile",
+        temperature=0,
+    )
 
     try:
+        logger.info("Critic: Validating info...")
 
-        logger.info(
-            "Critic: Validating info..."
-        )
-
-        research_data = state.get(
-            "research_data",
-            ""
-        )
+        research_data = state.get("research_data", "")
 
         prompt = f"""
-You are a senior AI research analyst.
+You are an AI research critic.
 
-Analyze and summarize:
+Validate and summarize the following research.
 
+Research:
 {research_data}
 
 Provide:
-1. Key findings
-2. Reliability analysis
-3. Technical insights
-4. Final concise summary
+1. Key Findings
+2. Reliability Assessment
+3. Technical Insights
+4. Final Summary
 """
 
-        response = llm.invoke(
-            [HumanMessage(content=prompt)]
-        )
+        response = llm.invoke([HumanMessage(content=prompt)])
 
-        return {
-            **state,
-            "final_report": response.content
-        }
+        return {**state, "final_report": response.content}
 
     except Exception as e:
-
-        logger.exception(
-            f"Critic node failed: {e}"
-        )
-
-        return {
-            **state,
-            "final_report": (
-                f"Critic failed: {str(e)}"
-            )
-        }
+        logger.error(f"Critic node failed: {e}", exc_info=True)
+        return {**state, "final_report": f"Critic failed: {str(e)}"}
